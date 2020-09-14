@@ -29,7 +29,7 @@
     <TestArgs                         Include="--summary --fail-on-focused-tests --colours 0 " Condition=" '$(UnstableTests)' == 'false' " />
   </ItemGroup>
 
-  <Target Name="TestTool">
+  <Target Name="TestTool" DependsOnTargets="Pack">
     <Exec Command='dotnet run -c $(Configuration) -- "$(Version)" %(TestArgs.Identity)' WorkingDirectory="$(RepoRootDir)/test/dotnet-proj.Tests" IgnoreStandardErrorWarningFormat="true" Condition=" '$(UnstableTests)' != 'true' " />
   </Target>
 

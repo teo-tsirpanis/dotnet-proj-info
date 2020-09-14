@@ -7,8 +7,6 @@ open Expecto.Logging
 open Expecto.Logging.Message
 open FileUtils
 open Medallion.Shell
-open System.IO.Compression
-open System.Xml.Linq
 open DotnetProjInfo.TestAssets
 
 let RepoDir = (__SOURCE_DIRECTORY__ /".." /"..") |> Path.GetFullPath
