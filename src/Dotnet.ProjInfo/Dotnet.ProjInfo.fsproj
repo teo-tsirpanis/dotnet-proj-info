@@ -14,9 +14,6 @@
     <Compile Include="NETFramework.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Dotnet.ProjInfo.Helpers\Dotnet.ProjInfo.Helpers.csproj" PrivateAssets="All" />
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Microsoft.FSharp.Targets">
       <LogicalName>Microsoft.FSharp.Targets</LogicalName>
     </EmbeddedResource>
@@ -24,14 +21,5 @@
       <LogicalName>EnvironmentInfo.proj</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
-  <!-- HACK: p2p of type project, not package (ref https://github.com/NuGet/Home/issues/3891 ) -->
-  <PropertyGroup>
-    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeP2POutput</TargetsForTfmSpecificBuildOutput>
-  </PropertyGroup>
-  <Target Name="IncludeP2POutput">
-    <ItemGroup>
-      <BuildOutputInPackage Include="$(MSBuildProjectDirectory)/$(OutputPath)Dotnet.ProjInfo.Helpers.dll" />
-    </ItemGroup>
-  </Target>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

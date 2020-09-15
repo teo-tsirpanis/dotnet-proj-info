@@ -1,6 +1,9 @@
 module Dotnet.ProjInfo.FakeMsbuildTasks
 
+open Microsoft.Build.Framework
+open Microsoft.Build.Utilities
 open System
+open System.Reflection
 
 // SRTP: how to set a property:
 //
@@ -8,19 +11,28 @@ open System
 //     (^a: (member set_References: Microsoft.Build.Framework.ITaskItem array -> unit) (e, x))
 //
 
-type ITaskItemArray = Microsoft.Build.Framework.ITaskItem array
+type ITaskItemArray = ITaskItem []
+
+let private generateResponseFileCommandsDelegate =
+    let bindingFlags = BindingFlags.NonPublic ||| BindingFlags.Instance
+    typeof<ToolTask>
+        .GetMethod("GenerateResponseFileCommands", bindingFlags)
+        .CreateDelegate(typeof<Func<ToolTask,string>>)
+        :?> Func<ToolTask,string>
+
+let generateResponseFileCommands x = generateResponseFileCommandsDelegate.Invoke x
 
 let inline getResponseFileFromTask props (fsc: ^a) =
 
-    let m : Map<string, string> = props |> Map.ofList
+    let m = readOnlyDict props
     let prop k =
-        match m |> Map.tryFind k with
-        | Some x ->
+        match m.TryGetValue(k) with
+        | true, x ->
             if String.IsNullOrWhiteSpace(x) then
                 None
             else
                 Some x
-        | None -> failwithf "not found k=%s in '%0A" k m
+        | false, _ -> failwithf "not found k=%s in '%0A" k m
 
     let bind f p =
         p |> prop |> Option.iter f
@@ -42,8 +54,7 @@ let inline getResponseFileFromTask props (fsc: ^a) =
         | None -> ()
         | Some l ->
             l
-            |> Array.map Microsoft.Build.Utilities.TaskItem
-            |> Array.map (fun x -> x :> Microsoft.Build.Framework.ITaskItem)
+            |> Array.map (fun x -> TaskItem x :> ITaskItem)
             |> f
 
     "BaseAddress"|> bind (fun prop -> (^a: (member set_BaseAddress: string -> unit) (fsc, prop)))
@@ -81,7 +92,9 @@ let inline getResponseFileFromTask props (fsc: ^a) =
     "TargetType" |> bind (fun prop -> (^a: (member set_TargetType: string -> unit) (fsc, prop)))
     "TargetProfile" |> bind (fun prop -> (^a: (member set_TargetProfile: string -> unit) (fsc, prop)))
     "ToolExe" |> bind (fun prop -> (^a: (member set_ToolExe: string -> unit) (fsc, prop)))
-    "ToolPath" |> bind (fun prop -> (^a: (member set_ToolPath: string -> unit) (fsc, prop)))
+    // https://github.com/dotnet/fsharp/pull/10126
+    // Besides, the toolpath is not used to generate the compiler arguments.
+    // "ToolPath" |> bind (fun prop -> (^a: (member set_ToolPath: string -> unit) (fsc, prop)))
     "TreatWarningsAsErrors" |> bindBool (fun prop -> (^a: (member set_TreatWarningsAsErrors: bool -> unit) (fsc, prop)))
     "UseStandardResourceNames" |> bindBool (fun prop -> (^a: (member set_UseStandardResourceNames: bool -> unit) (fsc, prop)))
     "Utf8Output" |> bindBool (fun prop -> (^a: (member set_Utf8Output: bool -> unit) (fsc, prop)))
@@ -95,7 +108,7 @@ let inline getResponseFileFromTask props (fsc: ^a) =
 
     //TODO force SkipCompilerExecution ?
 
-    let responseFileText = (^a: (member GenerateResponseFileCommands: unit -> string) (fsc))
+    let responseFileText = generateResponseFileCommands fsc
 
     responseFileText.Split([| Environment.NewLine |], StringSplitOptions.RemoveEmptyEntries)
     |> List.ofArray

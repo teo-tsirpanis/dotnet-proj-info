@@ -4,15 +4,17 @@
     <TargetFrameworks>netcoreapp2.1;net461</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Fsc.fs">
+      <Paket>True</Paket>
+      <Link>paket-files/Fsc.fs</Link>
+    </Compile>
     <ProjectReference Include="..\Dotnet.ProjInfo\Dotnet.ProjInfo.fsproj" />
-    <ProjectReference Include="..\Dotnet.ProjInfo.Helpers\Dotnet.ProjInfo.Helpers.csproj" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common.fs" />
     <Compile Include="NETFrameworkInfoProvider.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="ProjectCrackerTypes.fs" />
-    <Compile Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Fsc.fs" />
     <Compile Include="VisualTree.fs" />
     <Compile Include="ProjectCrackerDotnetSdk.fs" />
     <Compile Include="InspectSln.fs" />

@@ -8,13 +8,15 @@
     <PackAsTool>true</PackAsTool>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Fsc.fs" />
+    <Compile Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Fsc.fs">
+      <Paket>True</Paket>
+      <Link>paket-files/Fsc.fs</Link>
+    </Compile>
     <Compile Include="Railway.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dotnet.ProjInfo\Dotnet.ProjInfo.fsproj" />
-    <ProjectReference Include="..\Dotnet.ProjInfo.Helpers\Dotnet.ProjInfo.Helpers.csproj" PrivateAssets="All" />
     <ProjectReference Include="..\Dotnet.ProjInfo.Workspace\Dotnet.ProjInfo.Workspace.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

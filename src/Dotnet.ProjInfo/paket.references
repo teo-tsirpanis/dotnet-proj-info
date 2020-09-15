@@ -1,2 +1,4 @@
 FSharp.Core
+Microsoft.Build.Framework
+Microsoft.Build.Utilities.Core
 System.ValueTuple
