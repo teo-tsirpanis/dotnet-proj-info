@@ -1,43 +1,41 @@
-namespace Dotnet.ProjInfo.Workspace
+module Dotnet.ProjInfo.Workspace.InspectSln
 
-module InspectSln =
+open System
+open System.IO
 
-  open System
-  open System.IO
+let private normalizeDirSeparators (path: string) =
+    match Path.DirectorySeparatorChar with
+    | '\\' -> path.Replace('/', '\\')
+    | '/' -> path.Replace('\\', '/')
+    | _ -> path
 
-  let private normalizeDirSeparators (path: string) =
-      match System.IO.Path.DirectorySeparatorChar with
-      | '\\' -> path.Replace('/', '\\')
-      | '/' -> path.Replace('\\', '/')
-      | _ -> path
+type SolutionData = {
+    Items: SolutionItem list
+    Configurations: SolutionConfiguration list
+}
+and SolutionConfiguration = {
+    Id: string
+    ConfigurationName: string
+    PlatformName: string
+    IncludeInBuild: bool
+}
+and SolutionItem = {
+    Guid: Guid
+    Name: string
+    Kind: SolutionItemKind
+}
+and SolutionItemKind =
+    | MsbuildFormat of SolutionItemMsbuildConfiguration list
+    | Folder of (SolutionItem list) * (string list)
+    | Unsupported
+    | Unknown
+and SolutionItemMsbuildConfiguration = {
+    Id: string
+    ConfigurationName: string
+    PlatformName: string
+}
 
-  type SolutionData = {
-        Items: SolutionItem list
-        Configurations: SolutionConfiguration list
-        }
-  and SolutionConfiguration = {
-        Id: string
-        ConfigurationName: string
-        PlatformName: string
-        IncludeInBuild: bool
-        }
-  and SolutionItem = {
-        Guid: Guid
-        Name: string
-        Kind: SolutionItemKind
-        }
-  and SolutionItemKind =
-        | MsbuildFormat of SolutionItemMsbuildConfiguration list
-        | Folder of (SolutionItem list) * (string list)
-        | Unsupported
-        | Unknown
-  and SolutionItemMsbuildConfiguration = {
-        Id: string
-        ConfigurationName: string
-        PlatformName: string
-        }
-
-  let tryParseSln (slnFilePath: string) = 
+let tryParseSln (slnFilePath: string) = 
     let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
         let slnDir = Path.GetDirectoryName slnFilePath
         let makeAbsoluteFromSlnDir =
@@ -73,9 +71,11 @@ module InspectSln =
                     (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unknown
 
             let name, itemKind = parseKind item 
-            { Guid = item.ProjectGuid |> Guid.Parse
-              Name = name
-              Kind = itemKind }
+            {
+                Guid = item.ProjectGuid |> Guid.Parse
+                Name = name
+                Kind = itemKind
+            }
 
         let items =
             sln.ProjectsInOrder
@@ -95,17 +95,14 @@ module InspectSln =
     with ex ->
         Error ex
 
-  let loadingBuildOrder (data: SolutionData) =
+let loadingBuildOrder (data: SolutionData) =
 
     let rec projs (item: SolutionItem) =
         match item.Kind with
-        | MsbuildFormat items ->
-            [ item.Name ]
-        | Folder (items, _) ->
-            items |> List.collect projs
+        | MsbuildFormat items -> [item.Name]
+        | Folder (items, _) -> List.collect projs items
         | Unsupported
-        | Unknown ->
-            []
+        | Unknown -> []
 
     data.Items
     |> List.collect projs
