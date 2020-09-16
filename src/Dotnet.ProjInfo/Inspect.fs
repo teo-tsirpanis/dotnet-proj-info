@@ -5,10 +5,10 @@ open System.IO
 
 module MSBuild =
     type MSbuildCli =
-         | Property of string * string
-         | Target of string
-         | Switch of string
-         | Project of string
+        | Property of string * string
+        | Target of string
+        | Switch of string
+        | Project of string
 
     let sprintfMsbuildArg a =
         let quote (s: string) =
@@ -17,11 +17,11 @@ module MSBuild =
             else s
 
         match a with
-         | Property (k,"") -> sprintf "\"/p:%s=\"" k
-         | Property (k,v) -> sprintf "/p:%s=%s" k v |> quote
-         | Target t -> sprintf "/t:%s" t |> quote
-         | Switch w -> sprintf "/%s" w
-         | Project w -> w |> quote
+        | Property (k,"") -> sprintf "\"/p:%s=\"" k
+        | Property (k,v) -> sprintf "/p:%s=%s" k v |> quote
+        | Target t -> sprintf "/t:%s" t |> quote
+        | Switch w -> sprintf "/%s" w
+        | Project w -> w |> quote
 
     let (|ConditionEquals|_|) (str: string) (arg: string) = 
         if System.String.Compare(str, arg, System.StringComparison.OrdinalIgnoreCase) = 0
@@ -120,21 +120,27 @@ type GetItemsModifier =
     | FullPath
     | Custom of string
 
-type GetItemResult =
-    { Name: string
-      Identity: string
-      Metadata: (GetItemsModifier * string) list }
+type GetItemResult = {
+    Name: string
+    Identity: string
+    Metadata: (GetItemsModifier * string) list
+}
+
+type ResolvedP2PRefsInfo = {
+    ProjectReferenceFullPath: string
+    TargetFramework: string option
+    Others: (string * string) list
+}
 
 type GetResult =
-     | FscArgs of string list
-     | CscArgs of string list
-     | P2PRefs of string list
-     | ResolvedP2PRefs of ResolvedP2PRefsInfo list
-     | Properties of (string * string) list
-     | Items of GetItemResult list
-     | ResolvedNETRefs of string list
-     | InstalledNETFw of string list
-and ResolvedP2PRefsInfo = { ProjectReferenceFullPath: string; TargetFramework: string option; Others: (string * string) list }
+    | FscArgs of string list
+    | CscArgs of string list
+    | P2PRefs of string list
+    | ResolvedP2PRefs of ResolvedP2PRefsInfo list
+    | Properties of (string * string) list
+    | Items of GetItemResult list
+    | ResolvedNETRefs of string list
+    | InstalledNETFw of string list
 
 // See https://stackoverflow.com/questions/581570/how-can-i-create-a-temp-file-with-a-specific-extension-with-net
 let getNewTempFilePath suffix =
@@ -560,8 +566,8 @@ let getFscArgsOldSdk propsToFscArgs () =
 
     let template =
         """
-  <!-- Override CoreCompile target -->
-  <Target Name="CoreCompile" DependsOnTargets="$(CoreCompileDependsOn)">
+<!-- Override CoreCompile target -->
+<Target Name="CoreCompile" DependsOnTargets="$(CoreCompileDependsOn)">
     <ItemGroup>
         """
         + (
@@ -570,10 +576,9 @@ let getFscArgsOldSdk propsToFscArgs () =
         <_Inspect_CoreCompilePropsOldSdk_OutLines Include="P%i">
             <PropertyName>%s</PropertyName>
             <PropertyValue>%s</PropertyValue>
-        </_Inspect_CoreCompilePropsOldSdk_OutLines>
-                                             """ i p v)
+        </_Inspect_CoreCompilePropsOldSdk_OutLines>""" i p v)
             |> List.map (fun s -> s.TrimEnd())
-            |> String.concat (System.Environment.NewLine) )
+            |> String.concat (Environment.NewLine))
         +
         """
     </ItemGroup>
@@ -584,20 +589,24 @@ let getFscArgsOldSdk propsToFscArgs () =
             Lines="@(_Inspect_CoreCompilePropsOldSdk_OutLines -> '%(PropertyName)=%(PropertyValue)')"
             Overwrite="true" 
             Encoding="UTF-8"/>
-  </Target>
+</Target>
         """.Trim()
     let outFile = getNewTempFilePath "CoreCompilePropsOldSdk.txt"
-    let args =
-        [ Property ("CopyBuildOutputToOutputDirectory", "false")
-          Property ("UseCommonOutputDirectory", "true")
-          Property ("BuildingInsideVisualStudio", "true")
-          Property ("ShouldUnsetParentConfigurationAndPlatform", "true")
-          Target "Build"
-          Property ("_Inspect_CoreCompilePropsOldSdk_OutFile", outFile) ]
-    template, args, (fun () -> outFile
-                               |> bindSkipped parsePropertiesOut
-                               |> Result.bind propsToFscArgs
-                               |> Result.map FscArgs)
+    let args = [
+        Property ("CopyBuildOutputToOutputDirectory", "false")
+        Property ("UseCommonOutputDirectory", "true")
+        Property ("BuildingInsideVisualStudio", "true")
+        Property ("ShouldUnsetParentConfigurationAndPlatform", "true")
+        Target "Build"
+        Property ("_Inspect_CoreCompilePropsOldSdk_OutFile", outFile)
+    ]
+    template,
+    args,
+    (fun () ->
+        outFile
+        |> bindSkipped parsePropertiesOut
+        |> Result.bind propsToFscArgs
+        |> Result.map FscArgs)
 
 module ProjectLanguageRecognizer =
 
