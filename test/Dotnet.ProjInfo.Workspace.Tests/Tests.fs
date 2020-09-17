@@ -567,7 +567,7 @@ let tests (suiteConfig: TestSuiteConfig) =
         Expect.isTrue (match p with Ok _  -> true | Result.Error _  -> false) "expected successful parse"
 
         let actualProjects = 
-            InspectSln.loadingBuildOrder (match p with Ok (_,data)  -> data | _ -> failwith "unreachable")
+            InspectSln.loadingBuildOrder (match p with Ok data  -> data | _ -> failwith "unreachable")
             |> List.map Path.GetFullPath
 
         let expectedProjects = 

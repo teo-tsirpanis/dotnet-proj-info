@@ -9,30 +9,30 @@ let private normalizeDirSeparators (path: string) =
     | '/' -> path.Replace('\\', '/')
     | _ -> path
 
-type SolutionData = {
-    Items: SolutionItem list
-    Configurations: SolutionConfiguration list
-}
-and SolutionConfiguration = {
+type SolutionConfiguration = {
     Id: string
     ConfigurationName: string
     PlatformName: string
     IncludeInBuild: bool
 }
+type SolutionItemMsbuildConfiguration = {
+    Id: string
+    ConfigurationName: string
+    PlatformName: string
+}
+type SolutionItemKind =
+    | MsbuildFormat of SolutionItemMsbuildConfiguration list
+    | Folder of (SolutionItem list) * (string list)
+    | Unsupported
+    | Unknown
 and SolutionItem = {
     Guid: Guid
     Name: string
     Kind: SolutionItemKind
 }
-and SolutionItemKind =
-    | MsbuildFormat of SolutionItemMsbuildConfiguration list
-    | Folder of (SolutionItem list) * (string list)
-    | Unsupported
-    | Unknown
-and SolutionItemMsbuildConfiguration = {
-    Id: string
-    ConfigurationName: string
-    PlatformName: string
+type SolutionData = {
+    Items: SolutionItem list
+    Configurations: SolutionConfiguration list
 }
 
 let tryParseSln (slnFilePath: string) = 
@@ -47,7 +47,7 @@ let tryParseSln (slnFilePath: string) =
                     |> Path.GetFullPath
             normalizeDirSeparators >> makeAbs
         let rec parseItem (item: Microsoft.Build.Construction.ProjectInSolution) =
-            let parseKind (item: Microsoft.Build.Construction.ProjectInSolution) =
+            let name, itemKind =
                 match item.ProjectType with
                 | Microsoft.Build.Construction.SolutionProjectType.KnownToBeMSBuildFormat ->
                     (item.RelativePath |> makeAbsoluteFromSlnDir), SolutionItemKind.MsbuildFormat []
@@ -70,9 +70,8 @@ let tryParseSln (slnFilePath: string) =
                 | _ ->
                     (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unknown
 
-            let name, itemKind = parseKind item 
             {
-                Guid = item.ProjectGuid |> Guid.Parse
+                Guid = Guid.Parse item.ProjectGuid
                 Name = name
                 Kind = itemKind
             }
@@ -85,7 +84,7 @@ let tryParseSln (slnFilePath: string) =
             Items = items |> List.ofSeq
             Configurations = []
         }
-        (slnFilePath, data)
+        data
 
     try
         slnFilePath
