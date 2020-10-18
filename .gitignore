@@ -245,3 +245,4 @@ msbuild.binlog
 .fake
 .ionide
 obj2
+.idea
