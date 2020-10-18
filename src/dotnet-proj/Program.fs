@@ -1,8 +1,10 @@
 ﻿open System
+open System.Collections.Concurrent
+open System.Diagnostics
+open System.IO
 open Argu
 open Arguments
 open Railway
-open System.IO
 open Dotnet.ProjInfo.Inspect
 
 type ShellCommandResult = ShellCommandResult of workingDir: string * exePath: string * args: string * output: seq<bool*string>
@@ -21,23 +23,21 @@ let parseArgsCommandLine argv =
         let results = parser.Parse argv
         Ok results
     with
-        | :? ArguParseException as ex ->
-            Error (InvalidArgs ex)
-        | _ ->
-            reraise ()
+    | :? ArguParseException as ex ->
+        Error (InvalidArgs ex)
 
 let runCmd log workingDir exePath args =
     log (sprintf "running '%s %s'" exePath (args |> String.concat " "))
 
-    let logOutput = System.Collections.Concurrent.ConcurrentQueue<bool*string>()
+    let logOutput = ConcurrentQueue<bool*string>()
 
-    let runProcess (workingDir: string) (exePath: string) (args: string) =
-        let psi = System.Diagnostics.ProcessStartInfo()
+    let exitCode =
+        let psi = ProcessStartInfo()
         psi.FileName <- exePath
         psi.WorkingDirectory <- workingDir
         psi.RedirectStandardOutput <- true
         psi.RedirectStandardError <- true
-        psi.Arguments <- args
+        Seq.iter psi.ArgumentList.Add args
         psi.CreateNoWindow <- true
         psi.UseShellExecute <- false
 
@@ -51,8 +51,7 @@ let runCmd log workingDir exePath args =
         for msbuildEnvVar in msbuildEnvVars do
             psi.Environment.Remove(msbuildEnvVar) |> ignore
 
-
-        use p = new System.Diagnostics.Process()
+        use p = new Process()
         p.StartInfo <- psi
 
         p.OutputDataReceived.Add(fun ea -> logOutput.Enqueue (false, ea.Data))
@@ -64,25 +63,20 @@ let runCmd log workingDir exePath args =
         p.BeginErrorReadLine()
         p.WaitForExit()
 
-        let exitCode = p.ExitCode
+        p.ExitCode
 
-        exitCode
-
-    let args = args |> String.concat " "
-    let exitCode = runProcess workingDir exePath args
-    let output = logOutput.ToArray()
+    let error, output =
+        logOutput
+        |> List.ofSeq
+        |> List.partition fst
 
     log "output:"
-    output
-        |> Seq.choose (fun (isErr, line) -> if isErr then None else Some line)
-        |> Seq.iter log
+    List.iter (snd >> log) output
 
     log "error:"
-    output
-        |> Seq.choose (fun (isErr, line) -> if isErr then Some line else None)
-        |> Seq.iter log
+    List.iter (snd >> log) error
 
-    exitCode, (ShellCommandResult (workingDir, exePath, args, output))
+    exitCode, (ShellCommandResult (workingDir, exePath, String.concat " " args, output))
 
 let validateProj log projOpt = attempt {
     let scanDirForProj workDir =
@@ -152,23 +146,14 @@ let pickMsbuild isDotnetSdk (msbuildArg: Quotations.Expr<(string -> 'a)>) (dotne
     let dotnetPath = results.GetResult(dotnetcliArg, defaultValue = "dotnet")
     let dotnetHostPicker = results.GetResult(msbuildhostArg, defaultValue = MSBuildHostPicker.Auto)
 
-    let cmd = getP2PRefs
-
-    let rec msbuildHost host =
-        match host with
-        | MSBuildHostPicker.MSBuild ->
-            MSBuildExePath.Path msbuildPath
-        | MSBuildHostPicker.DotnetMSBuild ->
-            MSBuildExePath.DotnetMsbuild dotnetPath
-        | MSBuildHostPicker.Auto ->
-            if isDotnetSdk then
-                msbuildHost MSBuildHostPicker.DotnetMSBuild
-            else
-                msbuildHost MSBuildHostPicker.MSBuild
-        | x ->
-            failwithf "Unexpected msbuild host '%A'" x
-
-    msbuildHost dotnetHostPicker
+    match dotnetHostPicker, isDotnetSdk with
+    | MSBuildHostPicker.MSBuild, _
+    | MSBuildHostPicker.Auto, false ->
+        MSBuildExePath.Path msbuildPath
+    | MSBuildHostPicker.DotnetMSBuild, _
+    | MSBuildHostPicker.Auto, true ->
+        MSBuildExePath.DotnetMsbuild dotnetPath
+    | x, _ -> failwithf "Unexpected msbuild host '%A'" x
 
 let propMain log (results: ParseResults<PropCLIArguments>) = attempt {
 

@@ -1,4 +1,4 @@
-﻿module DotnetMergeNupkg.Program
+module DotnetMergeNupkg.Program
 
 open Expecto
 open System
@@ -29,7 +29,7 @@ let main argv =
             printfn "testing package: %s" pkgUnderTestVersion
             Ok (pkgUnderTestVersion, args)
         | args ->
-            printfn "Package version not passed as first argument, searching in nupks dir"
+            printfn "Package version not passed as first argument, searching in nupkg's dir"
             match findPackedVersion () with
             | Some v ->
                 printfn "found version '%s' of dotnet-proj" v
