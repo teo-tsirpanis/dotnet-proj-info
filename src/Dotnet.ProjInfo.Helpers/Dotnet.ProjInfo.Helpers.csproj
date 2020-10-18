@@ -11,5 +11,4 @@
     <Compile Include="..\..\paket-files\mono\mono\mcs\class\Microsoft.Build.Utilities\Mono.XBuild.Utilities\MSBuildUtils.cs" />
     <Compile Include="..\..\paket-files\mono\mono\mcs\class\Microsoft.Build.Utilities\Mono.XBuild.Utilities\ReservedNameUtils.cs" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

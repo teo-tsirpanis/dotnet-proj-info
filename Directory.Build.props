@@ -25,4 +25,16 @@
     <MonoOrEmpty Condition=" '$(OS)' != 'Windows_NT' ">mono </MonoOrEmpty>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference
+      Condition="'$(TargetFrameworkName)' == '.NETFramework'"
+      Include="Microsoft.NETFramework.ReferenceAssemblies"
+      Version="1.0.0"
+      PrivateAssets="All" />
+    <PackageReference
+      Include="Microsoft.SourceLink.GitHub"
+      Version="1.0.0"
+      PrivateAssets="All" />
+  </ItemGroup>
+
 </Project>
