@@ -1,4 +1,5 @@
 source https://api.nuget.org/v3/index.json
+source https://www.myget.org/F/sln-parser/api/v3/index.json
 storage: none
 framework: netcoreapp2.1, net461
 
@@ -8,7 +9,7 @@ nuget System.ValueTuple ~> 4.4 lowest_matching: true
 nuget FSharp.Compiler.Service ~> 37.0
 nuget Argu ~> 5.1
 
-nuget Sln ~> 0.3.0
+nuget Sln ~> 0.4.0
 nuget Microsoft.Build
 nuget Microsoft.Build.Framework
 nuget Microsoft.Build.Utilities.Core

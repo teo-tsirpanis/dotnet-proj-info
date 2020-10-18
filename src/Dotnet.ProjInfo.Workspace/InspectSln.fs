@@ -1,5 +1,6 @@
 module Dotnet.ProjInfo.Workspace.InspectSln
 
+open EnricoSada.MSBuild.Construction
 open System
 open System.IO
 
@@ -36,7 +37,7 @@ type SolutionData = {
 }
 
 let tryParseSln (slnFilePath: string) = 
-    let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
+    let parseSln (sln: SolutionFile) =
         let slnDir = Path.GetDirectoryName slnFilePath
         let makeAbsoluteFromSlnDir =
             let makeAbs (path: string) =
@@ -46,12 +47,12 @@ let tryParseSln (slnFilePath: string) =
                     Path.Combine(slnDir, path)
                     |> Path.GetFullPath
             normalizeDirSeparators >> makeAbs
-        let rec parseItem (item: Microsoft.Build.Construction.ProjectInSolution) =
+        let rec parseItem (item: ProjectInSolution) =
             let name, itemKind =
                 match item.ProjectType with
-                | Microsoft.Build.Construction.SolutionProjectType.KnownToBeMSBuildFormat ->
+                | SolutionProjectType.KnownToBeMSBuildFormat ->
                     (item.RelativePath |> makeAbsoluteFromSlnDir), SolutionItemKind.MsbuildFormat []
-                | Microsoft.Build.Construction.SolutionProjectType.SolutionFolder ->
+                | SolutionProjectType.SolutionFolder ->
                     let children =
                         sln.ProjectsInOrder
                         |> Seq.filter (fun x -> x.ParentProjectGuid = item.ProjectGuid)
@@ -61,14 +62,14 @@ let tryParseSln (slnFilePath: string) =
                         item.FolderFiles
                         |> Seq.map makeAbsoluteFromSlnDir
                         |> List.ofSeq
-                    item.ProjectName, SolutionItemKind.Folder (children, files)
-                | Microsoft.Build.Construction.SolutionProjectType.EtpSubProject
-                | Microsoft.Build.Construction.SolutionProjectType.WebDeploymentProject
-                | Microsoft.Build.Construction.SolutionProjectType.WebProject ->
-                    (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unsupported
-                | Microsoft.Build.Construction.SolutionProjectType.Unknown
+                    item.ProjectName, Folder (children, files)
+                | SolutionProjectType.EtpSubProject
+                | SolutionProjectType.WebDeploymentProject
+                | SolutionProjectType.WebProject ->
+                    (item.ProjectName |> makeAbsoluteFromSlnDir), Unsupported
+                | SolutionProjectType.Unknown
                 | _ ->
-                    (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unknown
+                    (item.ProjectName |> makeAbsoluteFromSlnDir), Unknown
 
             {
                 Guid = Guid.Parse item.ProjectGuid
@@ -88,7 +89,7 @@ let tryParseSln (slnFilePath: string) =
 
     try
         slnFilePath
-        |> Microsoft.Build.Construction.SolutionFile.Parse
+        |> SolutionFile.Parse
         |> parseSln
         |> Ok
     with ex ->
@@ -98,7 +99,7 @@ let loadingBuildOrder (data: SolutionData) =
 
     let rec projs (item: SolutionItem) =
         match item.Kind with
-        | MsbuildFormat items -> [item.Name]
+        | MsbuildFormat _ -> [item.Name]
         | Folder (items, _) -> List.collect projs items
         | Unsupported
         | Unknown -> []
