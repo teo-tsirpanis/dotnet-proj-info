@@ -1,6 +1,4 @@
-﻿module DotnetMergeNupkg.Program
-
-open Expecto
+﻿open Expecto
 open System
 open System.IO
 
@@ -32,14 +30,14 @@ let main argv =
     Environment.SetEnvironmentVariable("DOTNET_PROJ_INFO_MSBUILD_BL", "1")
     Environment.SetEnvironmentVariable("MSBuildExtensionsPath", null)
 
-    let resultsPath = IO.Path.Combine(__SOURCE_DIRECTORY__,"..","..","bin","test_results","Workspace.TestResults.xml")
+    let resultsPath = Path.Combine(__SOURCE_DIRECTORY__,"..","..","bin","test_results","Workspace.TestResults.xml")
 
-    let writeResults = TestResults.writeNUnitSummary (resultsPath, "Dotnet.ProjInfo.Workspace.FCS.Tests")
+    let writeResults = TestResults.writeNUnitSummary resultsPath
     let config = defaultConfig.appendSummaryHandler writeResults
 
     let tests =
         Tests.tests suiteConfig
-        |> Test.filter (fun s -> if runArgs.RunOnlyFlaky then s.Contains "[flaky]" else true)
-        |> Test.filter (fun s -> if runArgs.RunOnlyKnownFailure then s.Contains "[known-failure]" else true)
+        |> Test.filter "flaky tests" (fun s -> if runArgs.RunOnlyFlaky then List.contains "[flaky]" s else true)
+        |> Test.filter "known failures" (fun s -> if runArgs.RunOnlyKnownFailure then List.contains "[known-failure]" s else true)
 
     Tests.runTestsWithArgs config (otherArgs |> Array.ofList) tests

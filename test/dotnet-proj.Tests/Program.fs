@@ -48,9 +48,6 @@ let main argv =
         Environment.SetEnvironmentVariable("DOTNET_PROJ_INFO_MSBUILD_BL", "1")
         Environment.SetEnvironmentVariable("MSBuildExtensionsPath", null)
 
-        let resultsPath = IO.Path.Combine(__SOURCE_DIRECTORY__,"..","..","bin","test_results","TestResults.xml")
+        let resultsPath = Path.Combine(__SOURCE_DIRECTORY__,"..","..","bin","test_results","TestResults.xml")
 
-        let writeResults = TestResults.writeNUnitSummary (resultsPath, "dotnet-proj.Tests")
-        let config = defaultConfig.appendSummaryHandler writeResults
-
-        Tests.runTestsWithArgs config (args |> Array.ofList) (DotnetProjInfo.Tests.tests pkgUnderTestVersion)
+        runTestsWithCLIArgs [NUnit_Summary resultsPath] (args |> Array.ofList) (DotnetProjInfo.Tests.tests pkgUnderTestVersion)

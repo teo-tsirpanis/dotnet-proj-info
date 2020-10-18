@@ -3,7 +3,6 @@ source https://www.myget.org/F/sln-parser/api/v3/index.json
 storage: none
 framework: netcoreapp2.1, net461
 
-nuget Expecto.Diff
 nuget FSharp.Core >= 4.3.4 lowest_matching: true
 nuget System.ValueTuple ~> 4.4 lowest_matching: true
 nuget FSharp.Compiler.Service ~> 37.0
@@ -15,9 +14,9 @@ nuget Microsoft.Build.Framework
 nuget Microsoft.Build.Utilities.Core
 nuget Microsoft.Build.Locator
 
-nuget Expecto ~> 8.4
-nuget Expecto.TestResults ~> 8.4
-nuget MedallionShell ~> 1.5.0
+nuget Expecto
+nuget Expecto.Diff
+nuget MedallionShell
 
 // the Fsc build task
 github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
