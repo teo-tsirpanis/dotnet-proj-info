@@ -1,5 +1,7 @@
 namespace Dotnet.ProjInfo.Workspace
 
+open System.Runtime.InteropServices
+
 module internal CommonHelpers =
 
     let chooseByPrefix (prefix: string) (s: string) =
@@ -49,9 +51,4 @@ module internal Utils =
         exitCode, (workingDir, exePath, args)
 
     let isWindows () =
-#if NET461
-        System.Environment.OSVersion.Platform = System.PlatformID.Win32NT
-#else  
-        System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-            System.Runtime.InteropServices.OSPlatform.Windows)
-#endif
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows)

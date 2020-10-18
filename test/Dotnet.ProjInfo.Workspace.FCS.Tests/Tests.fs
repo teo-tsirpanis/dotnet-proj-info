@@ -265,7 +265,7 @@ let tests (suiteConfig: TestSuiteConfig) =
 
         let po =
           loader.Projects
-          |> expectFind { ProjectKey.ProjectPath = projPath; TargetFramework = "net461" } "find proj"
+          |> expectFind { ProjectKey.ProjectPath = projPath; TargetFramework = "net472" } "find proj"
 
         Expect.equal fcsPo.LoadTime po.LoadTime "load time"
 

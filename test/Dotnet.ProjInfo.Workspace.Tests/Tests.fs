@@ -2,17 +2,15 @@ module Tests
 
 open System
 open System.IO
+open System.Runtime.InteropServices
 open Expecto
 open Expecto.Logging
 open Expecto.Logging.Message
 open FileUtils
 open Medallion.Shell
-open System.IO.Compression
-open System.Xml.Linq
 open DotnetProjInfo.TestAssets
 open System.Collections.Generic
 open Dotnet.ProjInfo.Workspace
-open System.Collections.Generic
 
 #nowarn "25"
 
@@ -145,13 +143,7 @@ let findByPath path parsed =
      | None -> failwithf "key '%s' not found in %A" path (parsed |> Array.map (fun kv -> kv.Key))
 
 let isOSX () =
-#if NET461
-  System.Environment.OSVersion.Platform = PlatformID.MacOSX
-  || File.Exists "/usr/bin/osascript" // osascript is the AppleScript interpreter on OS X
-#else
-  System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-      System.Runtime.InteropServices.OSPlatform.OSX)
-#endif
+  RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
 
 open TestsConfig
 
@@ -256,7 +248,7 @@ let tests (suiteConfig: TestSuiteConfig) =
 
         let l1Parsed =
           parsed
-          |> expectFind projPath { ProjectKey.ProjectPath = projPath; TargetFramework = "net461" } "a lib"
+          |> expectFind projPath { ProjectKey.ProjectPath = projPath; TargetFramework = "net472" } "a lib"
 
         let expectedSources =
           let sourceFiles =
@@ -725,7 +717,7 @@ let tests (suiteConfig: TestSuiteConfig) =
           System.Threading.Interlocked.Increment(& strategyCalled) |> ignore
           Expect.equal fsprojPath projPath "proj path"
           Expect.equal firstTfm "netstandard2.0" "invalid first tfm"
-          Expect.equal secondTfm "net461" "invalid second tfm"
+          Expect.equal secondTfm "net472" "invalid second tfm"
           Expect.equal othersTfms [] "invalid others tfm"
           secondTfm
 
@@ -745,10 +737,10 @@ let tests (suiteConfig: TestSuiteConfig) =
 
         let m1Parsed =
           parsed
-          |> expectFind projPath { ProjectKey.ProjectPath = projPath; TargetFramework = "net461" } "the F# console"
+          |> expectFind projPath { ProjectKey.ProjectPath = projPath; TargetFramework = "net472" } "the F# console"
 
         let m1ExpectedSources =
-          [ projDir / "obj/Debug/net461/m1.AssemblyInfo.fs"
+          [ projDir / "obj/Debug/net472/m1.AssemblyInfo.fs"
             projDir / "LibraryB.fs" ]
           |> List.map Path.GetFullPath
 
@@ -786,7 +778,7 @@ let tests (suiteConfig: TestSuiteConfig) =
             Expect.equal file "a.fsx" "filename"
             Expect.equal source "text content" "filename"
             Expect.equal assumeDotNetFramework true "hardcoded value"
-            Expect.exists additionaRefs (isAssembly "mscorlib.dll" "4.6.1") "check net461 exists"
+            Expect.exists additionaRefs (isAssembly "mscorlib.dll" "4.6.1") "check net472 exists"
 
             return (1,2)
         }
@@ -869,7 +861,7 @@ let tests (suiteConfig: TestSuiteConfig) =
 
         let l1Parsed =
           parsed
-          |> expectFind projPath { ProjectKey.ProjectPath = projPath; TargetFramework = "net461" } "a lib"
+          |> expectFind projPath { ProjectKey.ProjectPath = projPath; TargetFramework = "net472" } "a lib"
 
         let viewer = ProjectViewer ()
 

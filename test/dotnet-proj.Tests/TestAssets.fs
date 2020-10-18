@@ -22,13 +22,13 @@ let andProps props x =
       yield! props ]
   { x with Props = n |> Map.ofList }
 
-/// old sdk, one net461 lib l1
+/// old sdk, one net472 lib l1
 let ``sample1 OldSdk library`` =
   { ProjDir = "sample1-oldsdk-lib"
     AssemblyName = "Lib1"
     ProjectFile = "l1"/"l1.fsproj"
     TargetFrameworks =  Map.ofList [
-      "net461", sourceFiles ["AssemblyInfo.fs"; "Library.fs"]
+      "net472", sourceFiles ["AssemblyInfo.fs"; "Library.fs"]
     ]
     ProjectReferences = [] }
 
@@ -72,14 +72,14 @@ let ``sample3 Netsdk projs`` =
 
 /// dotnet sdk, m1 library multi tfm:
 /// - netstandard2.0 with file LibraryA.fs and prop MyProperty=AAA
-/// - net461 with file LibraryB.fs and prop MyProperty=BBB
+/// - net472 with file LibraryB.fs and prop MyProperty=BBB
 let ``sample4 NetSdk multi tfm`` =
   { ProjDir = "sample4-netsdk-multitfm"
     AssemblyName = "m1"
     ProjectFile = "m1"/"m1.fsproj"
     TargetFrameworks =  Map.ofList [
       "netstandard2.0", (sourceFiles ["LibraryA.fs"] |> andProps ["MyProperty", "AAA"])
-      "net461", (sourceFiles ["LibraryB.fs"] |> andProps ["MyProperty", "BBB"])
+      "net472", (sourceFiles ["LibraryB.fs"] |> andProps ["MyProperty", "BBB"])
     ]
     ProjectReferences = [] }
 
@@ -130,10 +130,10 @@ let ``sample6 Netsdk Sparse/sln`` =
       TargetFrameworks = Map.empty
       ProjectReferences = [] }
 
-/// old sdk, a net461 console MultiProject1
+/// old sdk, a net472 console MultiProject1
 /// reference:
-/// - net461 lib Project1A (F#)
-/// - net461 lib Project1B (F#)
+/// - net472 lib Project1A (F#)
+/// - net472 lib Project1B (F#)
 let ``sample7 Oldsdk projs`` =
   { ProjDir = "sample7-oldsdk-projs"
     AssemblyName = "MultiProject1"

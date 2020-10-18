@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>netcoreapp2.1;net461</TargetFrameworks>
+    <TargetFrameworks>netcoreapp2.1;net472</TargetFrameworks>
     <Description>Get msbuild info</Description>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
@@ -12,14 +12,13 @@
     <Compile Include="Inspect.fs" />
     <Compile Include="NETFrameworkInfoFromMSBuild.fs" />
     <Compile Include="NETFramework.fs" />
+    <EmbeddedResource Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Microsoft.FSharp.Targets" LogicalName="Microsoft.FSharp.Targets" />
+    <EmbeddedResource Include="Resources\EnvironmentInfo.proj" LogicalName="EnvironmentInfo.proj" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Microsoft.FSharp.Targets">
-      <LogicalName>Microsoft.FSharp.Targets</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Resources\EnvironmentInfo.proj">
-      <LogicalName>EnvironmentInfo.proj</LogicalName>
-    </EmbeddedResource>
+    <PackageReference Include="Microsoft.Build.Locator" Version="1.2.6" />
+    <PackageReference Include="Microsoft.Build" Version="16.7" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="16.7" ExcludeAssets="runtime" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
