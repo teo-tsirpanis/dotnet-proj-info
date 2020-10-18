@@ -13,6 +13,7 @@
       <Link>paket-files/Fsc.fs</Link>
     </Compile>
     <Compile Include="Railway.fs" />
+    <Compile Include="Arguments.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

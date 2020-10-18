@@ -1,148 +1,19 @@
 ﻿open System
 open Argu
-
-type CLIArguments =
-    | [<AltCommandLine("-v")>] Verbose
-    | [<CliPrefix(CliPrefix.None)>] Prop of ParseResults<PropCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] Fsc_Args of ParseResults<CompilerArgsCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] Csc_Args of ParseResults<CompilerArgsCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] P2p of ParseResults<P2pCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] Item of ParseResults<ItemCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] Net_Fw of ParseResults<NetFwCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] Net_Fw_Ref of ParseResults<NetFwRefCLIArguments>
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | Verbose -> "verbose log"
-            | Prop _ -> "get properties"
-            | Fsc_Args _ -> "get fsc arguments"
-            | Csc_Args _ -> "get csc arguments"
-            | P2p _ -> "get project references"
-            | Item _ -> "get items"
-            | Net_Fw _ -> "list the installed .NET Frameworks"
-            | Net_Fw_Ref _ -> "get the reference path of given .NET Framework assembly"
-and MSBuildHostPicker =
-    | Auto = 1
-    | MSBuild  = 2
-    | DotnetMSBuild = 3
-and PropCLIArguments =
-    | [<MainCommand; Unique>] Project of string
-    | [<AltCommandLine("-get")>] GetProperty of string
-    | [<AltCommandLine("-p")>] Property of string list
-    | [<AltCommandLine("-f")>] Framework of string
-    | [<AltCommandLine("-r")>] Runtime of string
-    | [<AltCommandLine("-c")>] Configuration of string
-    | MSBuild of string
-    | DotnetCli of string
-    | MSBuild_Host of MSBuildHostPicker
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | Project _ -> "the MSBuild project file"
-            | Framework _ -> "target framework, the TargetFramework msbuild property"
-            | Runtime _ -> "target runtime, the RuntimeIdentifier msbuild property"
-            | Configuration _ -> "configuration to use (like Debug), the Configuration msbuild property"
-            | GetProperty _ -> "msbuild property to get (allow multiple)"
-            | Property _ -> "msbuild property to use (allow multiple)"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-            | DotnetCli _ -> """Dotnet CLI path (default "dotnet")"""
-            | MSBuild_Host _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
-and ItemCLIArguments =
-    | [<MainCommand; Unique>] Project of string
-    | [<AltCommandLine("-get")>] GetItem of string
-    | [<AltCommandLine("-p")>] Property of string list
-    | [<AltCommandLine("-f")>] Framework of string
-    | [<AltCommandLine("-r")>] Runtime of string
-    | [<AltCommandLine("-c")>] Configuration of string
-    | [<AltCommandLine("-d")>] Depends_On of string
-    | MSBuild of string
-    | DotnetCli of string
-    | MSBuild_Host of MSBuildHostPicker
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | Project _ -> "the MSBuild project file"
-            | Framework _ -> "target framework, the TargetFramework msbuild property"
-            | Runtime _ -> "target runtime, the RuntimeIdentifier msbuild property"
-            | Configuration _ -> "configuration to use (like Debug), the Configuration msbuild property"
-            | GetItem _ -> "msbuild item to get (allow multiple)"
-            | Property _ -> "msbuild property to use (allow multiple)"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-            | DotnetCli _ -> """Dotnet CLI path (default "dotnet")"""
-            | MSBuild_Host _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
-            | Depends_On _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
-and CompilerArgsCLIArguments =
-    | [<MainCommand; Unique>] Project of string
-    | [<AltCommandLine("-p")>] Property of string list
-    | [<AltCommandLine("-f")>] Framework of string
-    | [<AltCommandLine("-r")>] Runtime of string
-    | [<AltCommandLine("-c")>] Configuration of string
-    | MSBuild of string
-    | DotnetCli of string
-    | MSBuild_Host of MSBuildHostPicker
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | Project _ -> "the MSBuild project file"
-            | Framework _ -> "target framework, the TargetFramework msbuild property"
-            | Runtime _ -> "target runtime, the RuntimeIdentifier msbuild property"
-            | Configuration _ -> "configuration to use (like Debug), the Configuration msbuild property"
-            | Property _ -> "msbuild property to use (allow multiple)"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-            | DotnetCli _ -> """Dotnet CLI path (default "dotnet")"""
-            | MSBuild_Host _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
-and P2pCLIArguments =
-    | [<MainCommand; Unique>] Project of string
-    | [<AltCommandLine("-p")>] Property of string list
-    | [<AltCommandLine("-f")>] Framework of string
-    | [<AltCommandLine("-r")>] Runtime of string
-    | [<AltCommandLine("-c")>] Configuration of string
-    | MSBuild of string
-    | DotnetCli of string
-    | MSBuild_Host of MSBuildHostPicker
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | Project _ -> "the MSBuild project file"
-            | Framework _ -> "target framework, the TargetFramework msbuild property"
-            | Runtime _ -> "target runtime, the RuntimeIdentifier msbuild property"
-            | Configuration _ -> "configuration to use (like Debug), the Configuration msbuild property"
-            | Property _ -> "msbuild property to use (allow multiple)"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-            | DotnetCli _ -> """Dotnet CLI path (default "dotnet")"""
-            | MSBuild_Host _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
-and NetFwCLIArguments =
-    | MSBuild of string
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-and NetFwRefCLIArguments =
-    | [<MainCommand>] Assembly of string
-    | MSBuild of string
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | Assembly _ -> "the name of the assembly"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-
+open Arguments
+open Railway
+open System.IO
 open Dotnet.ProjInfo.Inspect
+
+type ShellCommandResult = ShellCommandResult of workingDir: string * exePath: string * args: string * output: seq<bool*string>
 
 type Errors =
     | InvalidArgs of Argu.ArguParseException
     | InvalidArgsState of string
     | ProjectFileNotFound of string
     | GenericError of string
-    | RaisedException of System.Exception * string
+    | RaisedException of exn * string
     | ExecutionError of GetProjectInfoErrors<ShellCommandResult>
-and ShellCommandResult = ShellCommandResult of workingDir: string * exePath: string * args: string * output: seq<bool*string>
 
 let parseArgsCommandLine argv =
     try
@@ -154,9 +25,6 @@ let parseArgsCommandLine argv =
             Error (InvalidArgs ex)
         | _ ->
             reraise ()
-
-open Railway
-open System.IO
 
 let runCmd log workingDir exePath args =
     log (sprintf "running '%s %s'" exePath (args |> String.concat " "))
@@ -373,7 +241,7 @@ let itemMain log (results: ParseResults<ItemCLIArguments>) = attempt {
 let fscArgsMain log (results: ParseResults<_>) = attempt {
 
     let! projPath =
-        results.TryGetResult CompilerArgsCLIArguments.Project
+        results.TryGetResult CommonProjectCLIArguments.Project
         |> validateProj log
 
     let! (isDotnetSdk, projectLanguage) = analizeProj projPath
@@ -395,9 +263,9 @@ let fscArgsMain log (results: ParseResults<_>) = attempt {
             |> Result.Error
 
     let globalArgs =
-        [ results.TryGetResult CompilerArgsCLIArguments.Framework , if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult CompilerArgsCLIArguments.Runtime, "RuntimeIdentifier"
-          results.TryGetResult CompilerArgsCLIArguments.Configuration, "Configuration" ]
+        [ results.TryGetResult CommonProjectCLIArguments.Framework , if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
+          results.TryGetResult CommonProjectCLIArguments.Runtime, "RuntimeIdentifier"
+          results.TryGetResult CommonProjectCLIArguments.Configuration, "Configuration" ]
         |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
         |> List.map (MSBuild.MSbuildCli.Property)
 
@@ -405,15 +273,15 @@ let fscArgsMain log (results: ParseResults<_>) = attempt {
 
     let msbuildHost =
         results
-        |> pickMsbuild isDotnetSdk <@ CompilerArgsCLIArguments.MSBuild @> <@ CompilerArgsCLIArguments.DotnetCli @> <@ CompilerArgsCLIArguments.MSBuild_Host @>
+        |> pickMsbuild isDotnetSdk <@ CommonProjectCLIArguments.MSBuild @> <@ CommonProjectCLIArguments.DotnetCli @> <@ CommonProjectCLIArguments.MSBuild_Host @>
 
     return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
     }
 
-let cscArgsMain log (results: ParseResults<CompilerArgsCLIArguments>) = attempt {
+let cscArgsMain log (results: ParseResults<CommonProjectCLIArguments>) = attempt {
 
     let! projPath =
-        results.TryGetResult CompilerArgsCLIArguments.Project
+        results.TryGetResult CommonProjectCLIArguments.Project
         |> validateProj log
 
     let! (isDotnetSdk, projectLanguage) = analizeProj projPath
@@ -433,9 +301,9 @@ let cscArgsMain log (results: ParseResults<CompilerArgsCLIArguments>) = attempt 
             |> Result.Error
 
     let globalArgs =
-        [ results.TryGetResult CompilerArgsCLIArguments.Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult CompilerArgsCLIArguments.Runtime, "RuntimeIdentifier"
-          results.TryGetResult CompilerArgsCLIArguments.Configuration, "Configuration" ]
+        [ results.TryGetResult CommonProjectCLIArguments.Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
+          results.TryGetResult CommonProjectCLIArguments.Runtime, "RuntimeIdentifier"
+          results.TryGetResult CommonProjectCLIArguments.Configuration, "Configuration" ]
         |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
         |> List.map (MSBuild.MSbuildCli.Property)
 
@@ -443,23 +311,23 @@ let cscArgsMain log (results: ParseResults<CompilerArgsCLIArguments>) = attempt 
 
     let msbuildHost =
         results
-        |> pickMsbuild isDotnetSdk <@ CompilerArgsCLIArguments.MSBuild @> <@ CompilerArgsCLIArguments.DotnetCli @> <@ CompilerArgsCLIArguments.MSBuild_Host @>
+        |> pickMsbuild isDotnetSdk <@ CommonProjectCLIArguments.MSBuild @> <@ CommonProjectCLIArguments.DotnetCli @> <@ CommonProjectCLIArguments.MSBuild_Host @>
 
     return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
     }
 
-let p2pMain log (results: ParseResults<P2pCLIArguments>) = attempt {
+let p2pMain log (results: ParseResults<CommonProjectCLIArguments>) = attempt {
 
     let! projPath =
-        results.TryGetResult P2pCLIArguments.Project
+        results.TryGetResult Project
         |> validateProj log
 
     let! (isDotnetSdk, _projectLanguage) = analizeProj projPath
 
     let globalArgs =
-        [ results.TryGetResult P2pCLIArguments.Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult P2pCLIArguments.Runtime, "RuntimeIdentifier"
-          results.TryGetResult P2pCLIArguments.Configuration, "Configuration" ]
+        [ results.TryGetResult Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
+          results.TryGetResult Runtime, "RuntimeIdentifier"
+          results.TryGetResult Configuration, "Configuration" ]
         |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
         |> List.map (MSBuild.MSbuildCli.Property)
 
@@ -467,7 +335,7 @@ let p2pMain log (results: ParseResults<P2pCLIArguments>) = attempt {
 
     let msbuildHost =
         results
-        |> pickMsbuild isDotnetSdk <@ P2pCLIArguments.MSBuild @> <@ P2pCLIArguments.DotnetCli @> <@ P2pCLIArguments.MSBuild_Host @>
+        |> pickMsbuild isDotnetSdk <@ CommonProjectCLIArguments.MSBuild @> <@ DotnetCli @> <@ MSBuild_Host @>
 
     return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
     }
