@@ -1,3 +1,4 @@
+[<System.Obsolete("Use Dotnet.ProjInfo.MSBuild.Inspect instead.")>]
 module Dotnet.ProjInfo.Inspect
 
 open System

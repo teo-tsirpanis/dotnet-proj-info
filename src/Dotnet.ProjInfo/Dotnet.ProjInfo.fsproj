@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netcoreapp2.1;net472</TargetFrameworks>
@@ -10,6 +10,7 @@
     <Compile Include="ExternalFSharp\MissingApi.fs" />
     <Compile Include="ExternalFSharp\FscConfig.fs" />
     <Compile Include="Inspect.fs" />
+    <Compile Include="MSBuild.fs" />
     <Compile Include="NETFrameworkInfoFromMSBuild.fs" />
     <Compile Include="NETFramework.fs" />
     <EmbeddedResource Include="..\..\paket-files\Microsoft\visualfsharp\src\fsharp\FSharp.Build\Microsoft.FSharp.Targets" LogicalName="Microsoft.FSharp.Targets" />
