@@ -14,9 +14,7 @@ type PropCLIArguments =
     | [<AltCommandLine("-f")>] Framework of string
     | [<AltCommandLine("-r")>] Runtime of string
     | [<AltCommandLine("-c")>] Configuration of string
-    | MSBuild of string
-    | DotnetCli of string
-    | MSBuild_Host of MSBuildHostPicker
+    | [<Unique>] Json
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -26,10 +24,8 @@ with
             | Runtime _ -> "target runtime, the RuntimeIdentifier msbuild property"
             | Configuration _ -> "configuration to use (like Debug), the Configuration msbuild property"
             | GetProperty _ -> "msbuild property to get (allow multiple)"
-            | Property _ -> "msbuild property to use (allow multiple)"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-            | DotnetCli _ -> """Dotnet CLI path (default "dotnet")"""
-            | MSBuild_Host _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
+            | Property _ -> "msbuild global property to set (allow multiple)"
+            | Json -> "print output as JSON"
 
 type ItemCLIArguments =
     | [<MainCommand; Unique>] Project of string
@@ -39,9 +35,7 @@ type ItemCLIArguments =
     | [<AltCommandLine("-r")>] Runtime of string
     | [<AltCommandLine("-c")>] Configuration of string
     | [<AltCommandLine("-d")>] Depends_On of string
-    | MSBuild of string
-    | DotnetCli of string
-    | MSBuild_Host of MSBuildHostPicker
+    | [<Unique>] Json
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -52,10 +46,8 @@ with
             | Configuration _ -> "configuration to use (like Debug), the Configuration msbuild property"
             | GetItem _ -> "msbuild item to get (allow multiple)"
             | Property _ -> "msbuild property to use (allow multiple)"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-            | DotnetCli _ -> """Dotnet CLI path (default "dotnet")"""
-            | MSBuild_Host _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
             | Depends_On _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
+            | Json -> "print output as JSON"
 
 type CommonProjectCLIArguments =
     | [<MainCommand; Unique>] Project of string
@@ -98,7 +90,8 @@ with
             | MSBuild _ -> """MSBuild path (default "msbuild")"""
 
 type CLIArguments =
-    | [<AltCommandLine("-v")>] Verbose
+    | [<AltCommandLine("-v"); InheritAttribute>] Verbose
+    | [<Unique; Inherit>] MSBuild of string
     | [<CliPrefix(CliPrefix.None)>] Prop of ParseResults<PropCLIArguments>
     | [<CliPrefix(CliPrefix.None)>] Fsc_Args of ParseResults<CommonProjectCLIArguments>
     | [<CliPrefix(CliPrefix.None)>] Csc_Args of ParseResults<CommonProjectCLIArguments>
@@ -111,6 +104,7 @@ with
         member s.Usage =
             match s with
             | Verbose -> "verbose log"
+            | MSBuild _ -> "MSBuild directory"
             | Prop _ -> "get properties"
             | Fsc_Args _ -> "get fsc arguments"
             | Csc_Args _ -> "get csc arguments"

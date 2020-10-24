@@ -32,7 +32,7 @@ type ProjectEvaluationRequest =
     /// Sets the appropriate parameters to the evaluator
     /// to get the compiler arguments of the project.
     /// As a parameter, whether the project is SDK-style has to be passed.
-    | GetCompilerArgs of isSdkStyleProject: bool
+    | GetCompilerArgs
     /// Sets the appropriate parameters to get
     /// the resolved project references of the project.
     | GetResolvedProjectToProjectReferences
@@ -112,13 +112,14 @@ module Inspect =
         BuildRequestData(projectInstance, targets, null, flags)
 
     /// Returns the targets and global properties that the given `ProjectEvaluationRequest`s set.
+    /// This function also must be given whether the project is an SDK-style one.
     /// Duplicate targets are ignored. In case of duplicate global properties the latter one takes precedence.
     /// Unless overriden, the global properties "DesigntimeBuild" and "DotnetProjInfo" are always set to true.
-    let expandEvaluationRequests requests =
+    let expandEvaluationRequests isSdkStyleProject requests =
         let targetsRaw, globalPropertiesRaw =
             requests
             |> Seq.map (function
-                | ProjectEvaluationRequest.GetCompilerArgs true ->
+                | ProjectEvaluationRequest.GetCompilerArgs when isSdkStyleProject ->
                     ["ResolveReferences"; "CoreCompile"],
                     [
                         "SkipCompilerExecution", "true"
@@ -126,14 +127,15 @@ module Inspect =
                         "CopyBuildOutputToOutputDirectory", "false"
                         "UseCommonOutputDirectory", "true"
                     ]
-                | ProjectEvaluationRequest.GetCompilerArgs false ->
+                | ProjectEvaluationRequest.GetCompilerArgs ->
                     "Getting compiler arguments for legacy projects is not supported."
                     |> NotSupportedException
                     |> raise
                 | ProjectEvaluationRequest.GetResolvedProjectToProjectReferences ->
                     ["ResolveProjectReferencesDesignTime"], []
                 | ProjectEvaluationRequest.TargetFramework tfm ->
-                    [], ["TargetFramework", tfm]
+                    let propertyName = if isSdkStyleProject then "TargetFramework" else "TargetFrameworkVersion"
+                    [], [propertyName, tfm]
                 | ProjectEvaluationRequest.RuntimeIdentifier rid ->
                     [], ["RuntimeIdentifier", rid]
                 | ProjectEvaluationRequest.Configuration x ->
@@ -162,11 +164,11 @@ module Inspect =
                 sprintf "Dotnet.ProjInfo build manager for thread %d" Thread.CurrentThread.ManagedThreadId))
 
     /// Evaluates an MSBuild project.
-    let evaluateProject config requests projectPath =
+    let evaluateProject config isSdkStyleProject requests projectPath =
         let requests = List.ofSeq requests
         let buildManager = buildManagers.Value
         let projectFullPath = Path.GetFullPath(projectPath)
-        let targetsToExecute, globalProperties = expandEvaluationRequests requests
+        let targetsToExecute, globalProperties = expandEvaluationRequests isSdkStyleProject requests
         let projectInstance = ProjectInstance(projectFullPath, globalProperties, null)
         let buildParams = createBuildParams config
         let buildRequestData = createBuildRequestData targetsToExecute projectInstance

@@ -2,19 +2,24 @@
 open System.Collections.Concurrent
 open System.Diagnostics
 open System.IO
+open System.Text.Json
 open Argu
 open Arguments
+open Microsoft.Build.Framework
+open Microsoft.Build.Locator
 open Railway
+open Dotnet.ProjInfo.MSBuild
 open Dotnet.ProjInfo.Inspect
 
 type ShellCommandResult = ShellCommandResult of workingDir: string * exePath: string * args: string * output: seq<bool*string>
 
 type Errors =
-    | InvalidArgs of Argu.ArguParseException
+    | InvalidArgs of ArguParseException
     | InvalidArgsState of string
     | ProjectFileNotFound of string
     | GenericError of string
     | RaisedException of exn * string
+    | EvaluationError of exn option
     | ExecutionError of GetProjectInfoErrors<ShellCommandResult>
 
 let parseArgsCommandLine argv =
@@ -114,7 +119,7 @@ let validateProj log projOpt = attempt {
 
 open Dotnet.ProjInfo.Workspace.ProjectRecognizer
 
-let analizeProj projPath = attempt {
+let analyzeProj projPath = attempt {
 
     let! (isDotnetSdk, pi) =
         match kindOfProjectSdk projPath, ProjectLanguageRecognizer.languageOfProject projPath with
@@ -128,7 +133,11 @@ let analizeProj projPath = attempt {
             |> Result.Error
 
     return isDotnetSdk, pi
-    }
+}
+
+let evaluateProj config isSdkStyleProject requests project =
+    Inspect.evaluateProject config isSdkStyleProject requests project
+    |> Result.mapError EvaluationError
 
 let doNothing _log _msbuildExec projPath =
     Result.Ok None
@@ -155,73 +164,82 @@ let pickMsbuild isDotnetSdk (msbuildArg: Quotations.Expr<(string -> 'a)>) (dotne
         MSBuildExePath.DotnetMsbuild dotnetPath
     | x, _ -> failwithf "Unexpected msbuild host '%A'" x
 
-let propMain log (results: ParseResults<PropCLIArguments>) = attempt {
+let propMain config log (results: ParseResults<PropCLIArguments>) = attempt {
 
     let! projPath =
         results.TryGetResult PropCLIArguments.Project
         |> validateProj log
 
-    let! (isDotnetSdk, _) = analizeProj projPath
+    let! (isDotnetSdk, _) = analyzeProj projPath
 
-    let globalArgs =
-        [ results.TryGetResult PropCLIArguments.Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult PropCLIArguments.Runtime, "RuntimeIdentifier"
-          results.TryGetResult PropCLIArguments.Configuration, "Configuration" ]
-        |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
-        |> List.map (MSBuild.MSbuildCli.Property)
+    let requests = List.choose id [
+        results.TryGetResult PropCLIArguments.Framework |> Option.map ProjectEvaluationRequest.TargetFramework
+        results.TryGetResult PropCLIArguments.Runtime |> Option.map ProjectEvaluationRequest.RuntimeIdentifier
+        results.TryGetResult PropCLIArguments.Configuration |> Option.map ProjectEvaluationRequest.Configuration
+    ]
 
-    let props = results.GetResults PropCLIArguments.GetProperty
+    let props = results.GetResults GetProperty
 
-    let cmd () = getProperties props
+    let! project = evaluateProj config isDotnetSdk requests projPath
 
-    let msbuildHost =
-        results
-        |> pickMsbuild isDotnetSdk <@ PropCLIArguments.MSBuild @> <@ PropCLIArguments.DotnetCli @> <@ PropCLIArguments.MSBuild_Host @>
+    let projInstance = project.GetMutableProjectInstance()
+    props
+    |> Seq.map (fun propName -> propName, projInstance.GetPropertyValue propName)
+    |> (fun x ->
+        if results.Contains PropCLIArguments.Json then
+            x |> dict |> JsonSerializer.Serialize |> Console.WriteLine
+        else
+            x |> Seq.iter ((<||) (sprintf "%s=%s") >> Console.WriteLine)
+    )
+}
 
-    return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
-    }
-
-let itemMain log (results: ParseResults<ItemCLIArguments>) = attempt {
+let itemMain config log (results: ParseResults<ItemCLIArguments>) = attempt {
 
     let! projPath =
         results.TryGetResult ItemCLIArguments.Project
         |> validateProj log
 
-    let! (isDotnetSdk, _) = analizeProj projPath
-
-    let globalArgs =
-        [ results.TryGetResult ItemCLIArguments.Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult ItemCLIArguments.Runtime, "RuntimeIdentifier"
-          results.TryGetResult ItemCLIArguments.Configuration, "Configuration" ]
-        |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
-        |> List.map (MSBuild.MSbuildCli.Property)
-
-    let parseItemPath (path: string) =
-        match path.Split('.') |> List.ofArray with
-        | [p] -> p, GetItemsModifier.Identity
-        | [p; m] ->
-            let modifier =
-                match m.ToLower() with
-                | "identity" -> GetItemsModifier.Identity
-                | "fullpath" -> GetItemsModifier.FullPath
-                | _ -> GetItemsModifier.Custom m
-            p, modifier
-        | _ -> failwithf "Unexpected item path '%s'. Expected format is 'ItemName' or 'ItemName.Metadata' (like Compile.Identity or Compile.FullPath)" path
-
-    let items =
-        results.GetResults ItemCLIArguments.GetItem
-        |> List.map parseItemPath
+    let! (isDotnetSdk, _) = analyzeProj projPath
 
     let dependsOn = results.GetResults ItemCLIArguments.Depends_On
 
-    let cmd () = getItems items dependsOn
+    let requests = ProjectEvaluationRequest.Custom(dependsOn, []) :: List.choose id [
+        results.TryGetResult ItemCLIArguments.Framework |> Option.map ProjectEvaluationRequest.TargetFramework
+        results.TryGetResult ItemCLIArguments.Runtime |> Option.map ProjectEvaluationRequest.RuntimeIdentifier
+        results.TryGetResult ItemCLIArguments.Configuration |> Option.map ProjectEvaluationRequest.Configuration
+    ]
 
-    let msbuildHost =
-        results
-        |> pickMsbuild isDotnetSdk <@ ItemCLIArguments.MSBuild @> <@ ItemCLIArguments.DotnetCli @> <@ ItemCLIArguments.MSBuild_Host @>
+    let parseItemPath (path: string) =
+        match path.Split('.') with
+        | [|p|] -> p, "Identity"
+        | [|p; m|] -> p, m
+        | _ -> failwithf "Unexpected item path '%s'. Expected format is 'ItemName' or 'ItemName.Metadata' (like Compile.Identity or Compile.FullPath)" path
 
-    return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
-    }
+    let! proj = evaluateProj config isDotnetSdk requests projPath
+
+    let items =
+        results.GetResults ItemCLIArguments.GetItem
+        |> Seq.map parseItemPath
+        |> Seq.groupBy fst
+        |> Seq.collect (fun (itemType, metadata) ->
+            let metadata = Seq.map snd metadata |> List.ofSeq
+            let items = proj.GetAllMutableItems itemType
+            items
+            |> Seq.map (fun item ->
+                let metadata =
+                    metadata
+                    |> Seq.map (fun mdName -> mdName, item.GetMetadataValue mdName)
+                    |> readOnlyDict
+                {|ItemType = itemType; Metadata = metadata|}))
+        |> List.ofSeq
+
+    if results.Contains ItemCLIArguments.Json then
+        printfn "%s" (JsonSerializer.Serialize items)
+    else
+        for item in items do
+            for KeyValue(mdName, mdValue) in item.Metadata do
+                printfn "%s.%s=%s" item.ItemType mdName mdValue
+}
 
 let fscArgsMain log (results: ParseResults<_>) = attempt {
 
@@ -229,7 +247,7 @@ let fscArgsMain log (results: ParseResults<_>) = attempt {
         results.TryGetResult CommonProjectCLIArguments.Project
         |> validateProj log
 
-    let! (isDotnetSdk, projectLanguage) = analizeProj projPath
+    let! (isDotnetSdk, projectLanguage) = analyzeProj projPath
 
     let! getCompilerArgsBySdk =
         match isDotnetSdk, projectLanguage with
@@ -269,7 +287,7 @@ let cscArgsMain log (results: ParseResults<CommonProjectCLIArguments>) = attempt
         results.TryGetResult CommonProjectCLIArguments.Project
         |> validateProj log
 
-    let! (isDotnetSdk, projectLanguage) = analizeProj projPath
+    let! (isDotnetSdk, projectLanguage) = analyzeProj projPath
 
     let! getCompilerArgsBySdk =
         match isDotnetSdk, projectLanguage with
@@ -307,7 +325,7 @@ let p2pMain log (results: ParseResults<CommonProjectCLIArguments>) = attempt {
         results.TryGetResult Project
         |> validateProj log
 
-    let! (isDotnetSdk, _projectLanguage) = analizeProj projPath
+    let! (isDotnetSdk, _projectLanguage) = analyzeProj projPath
 
     let globalArgs =
         [ results.TryGetResult Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
@@ -362,9 +380,23 @@ let netFwRefMain log (results: ParseResults<_>) = attempt {
     return projPath, cmd, msbuildHost, [], doNothing
     }
 
+let createEvaluationConfig (results: ParseResults<_>) =
+    let consoleVerbosity = if results.Contains Verbose then LoggerVerbosity.Normal else LoggerVerbosity.Minimal
+    {ProjectEvaluationConfig.Default with ConsoleLogVerbosity = Some consoleVerbosity}
+
 let realMain argv = attempt {
 
     let! results = parseArgsCommandLine argv
+
+    do
+        match results.TryGetResult MSBuild with
+        | Some msBuildDir ->
+            msBuildDir
+            |> Path.GetDirectoryName
+            |> MSBuildLocator.RegisterMSBuildPath
+        | None -> MSBuildLocator.RegisterDefaults() |> ignore
+
+    let config = createEvaluationConfig results
 
     let log =
         match results.TryGetResult Verbose with
@@ -374,9 +406,9 @@ let realMain argv = attempt {
     let! (projPath, cmd, msbuildHost, globalArgs, preAction) =
         match results.TryGetSubCommand () with
         | Some (Prop subCmd) ->
-            propMain log subCmd
+            propMain config log subCmd
         | Some (Item subCmd) ->
-            itemMain log subCmd
+            itemMain config log subCmd
         | Some (Fsc_Args subCmd) ->
             fscArgsMain log subCmd
         | Some (Csc_Args subCmd) ->
@@ -441,7 +473,7 @@ let wrapEx m f a =
 
 let (|HelpRequested|_|) (ex: ArguParseException) =
     match ex.ErrorCode with
-    | Argu.ErrorCode.HelpText -> Some ex.Message
+    | ErrorCode.HelpText -> Some ex.Message
     | _ -> None
 
 [<EntryPoint>]
@@ -472,6 +504,13 @@ let main argv =
             printfn "%s:" message
             printfn "%A" ex
             6
+        | EvaluationError ex ->
+            printfn "Project evaluation failed."
+            match ex with
+            | Some ex -> string ex
+            | None -> "MSBuild did not raise an exception."
+            |> Console.WriteLine
+            7
         | ExecutionError (MSBuildFailed (i, ShellCommandResult(wd, exePath, args, output))) ->
             printfn "msbuild exit code: %i" i
             printfn "command line was: %s> %s %s" wd exePath args
