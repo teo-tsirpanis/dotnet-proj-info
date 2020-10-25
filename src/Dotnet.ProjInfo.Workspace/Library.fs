@@ -2,7 +2,7 @@ namespace Dotnet.ProjInfo.Workspace
 
 open System.Collections.Concurrent
 open System.IO
-open ProjectRecognizer
+open Dotnet.ProjInfo
 open System.Threading.Tasks
 
 type ProjectKey =
@@ -94,7 +94,7 @@ type Loader private (msbuildHostDotNetSdk, msbuildHostVerboseSdk) =
         |> iter (fun project ->
             let loader =
                 if File.Exists project then
-                    match kindOfProjectSdk project with
+                    match ProjectRecognizer.kindOfProjectSdk project with
                     | Some ProjectSdkKind.DotNetSdk ->
                         ProjectCrackerDotnetSdk.load crosstargetingStrategy this.MSBuildHostDotNetSdk useBinaryLogger
                     | Some ProjectSdkKind.VerboseSdk ->

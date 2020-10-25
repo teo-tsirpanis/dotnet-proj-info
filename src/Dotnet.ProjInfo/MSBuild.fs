@@ -1,5 +1,6 @@
 namespace Dotnet.ProjInfo.MSBuild
 
+open Dotnet.ProjInfo
 open Microsoft.Build.Execution
 open Microsoft.Build.Framework
 open Microsoft.Build.Logging
@@ -47,10 +48,15 @@ type ProjectEvaluationRequest =
 
 /// The result of a project evaluation. It wraps a
 /// `Microsoft.Build.Execution.ProjectInstance` with some convenience methods.
-type ProjectEvaluationResult internal(requests, proj: ProjectInstance) =
+type ProjectEvaluationResult internal(requests, isSdkStyleProject, proj: ProjectInstance) =
     let loadTime = DateTimeOffset.Now
+    let language = ProjectLanguageRecognizer.languageOfProject proj.FullPath
     /// The project's full path.
     member _.ProjectFullPath = proj.FullPath
+    /// Whether the project is an SDK-style one.
+    member _.IsSdkStyleProject = isSdkStyleProject
+    /// The programming language of the project.
+    member _.Language = language
     /// The date and time the evaluation happened.
     member _.LoadTime = loadTime
     /// The `ProjectEvaluationRequest`s that were used for this evalutation.
@@ -164,7 +170,12 @@ module Inspect =
                 sprintf "Dotnet.ProjInfo build manager for thread %d" Thread.CurrentThread.ManagedThreadId))
 
     /// Evaluates an MSBuild project.
-    let evaluateProject config isSdkStyleProject requests projectPath =
+    let evaluateProject config requests projectPath =
+        let isSdkStyleProject =
+            match ProjectRecognizer.kindOfProjectSdk projectPath with
+            | Some (ProjectSdkKind.DotNetSdk) -> true
+            | Some ProjectSdkKind.VerboseSdk -> false
+            | _ -> raise (InvalidDataException("Unsupported project file."))
         let requests = List.ofSeq requests
         let buildManager = buildManagers.Value
         let projectFullPath = Path.GetFullPath(projectPath)
@@ -177,6 +188,6 @@ module Inspect =
 
         match buildResult.OverallResult, buildResult.Exception with
         | BuildResultCode.Success, _ ->
-            ProjectEvaluationResult(requests, projectInstance) |> Ok
+            ProjectEvaluationResult(requests, isSdkStyleProject, projectInstance) |> Ok
         | _, null -> Error None
         | _, ex -> Error (Some ex)

@@ -117,7 +117,8 @@ let validateProj log projOpt = attempt {
     return projPath
     }
 
-open Dotnet.ProjInfo.Workspace.ProjectRecognizer
+open Dotnet.ProjInfo
+open Dotnet.ProjInfo.ProjectRecognizer
 
 let analyzeProj projPath = attempt {
 
@@ -135,8 +136,8 @@ let analyzeProj projPath = attempt {
     return isDotnetSdk, pi
 }
 
-let evaluateProj config isSdkStyleProject requests project =
-    Inspect.evaluateProject config isSdkStyleProject requests project
+let evaluateProj config requests project =
+    Inspect.evaluateProject config requests project
     |> Result.mapError EvaluationError
 
 let doNothing _log _msbuildExec projPath =
@@ -170,8 +171,6 @@ let propMain config log (results: ParseResults<PropCLIArguments>) = attempt {
         results.TryGetResult PropCLIArguments.Project
         |> validateProj log
 
-    let! (isDotnetSdk, _) = analyzeProj projPath
-
     let requests = List.choose id [
         results.TryGetResult PropCLIArguments.Framework |> Option.map ProjectEvaluationRequest.TargetFramework
         results.TryGetResult PropCLIArguments.Runtime |> Option.map ProjectEvaluationRequest.RuntimeIdentifier
@@ -180,7 +179,7 @@ let propMain config log (results: ParseResults<PropCLIArguments>) = attempt {
 
     let props = results.GetResults GetProperty
 
-    let! project = evaluateProj config isDotnetSdk requests projPath
+    let! project = evaluateProj config requests projPath
 
     let projInstance = project.GetMutableProjectInstance()
     props
@@ -199,8 +198,6 @@ let itemMain config log (results: ParseResults<ItemCLIArguments>) = attempt {
         results.TryGetResult ItemCLIArguments.Project
         |> validateProj log
 
-    let! (isDotnetSdk, _) = analyzeProj projPath
-
     let dependsOn = results.GetResults ItemCLIArguments.Depends_On
 
     let requests = ProjectEvaluationRequest.Custom(dependsOn, []) :: List.choose id [
@@ -215,7 +212,7 @@ let itemMain config log (results: ParseResults<ItemCLIArguments>) = attempt {
         | [|p; m|] -> p, m
         | _ -> failwithf "Unexpected item path '%s'. Expected format is 'ItemName' or 'ItemName.Metadata' (like Compile.Identity or Compile.FullPath)" path
 
-    let! proj = evaluateProj config isDotnetSdk requests projPath
+    let! proj = evaluateProj config requests projPath
 
     let items =
         results.GetResults ItemCLIArguments.GetItem
@@ -251,17 +248,17 @@ let fscArgsMain log (results: ParseResults<_>) = attempt {
 
     let! getCompilerArgsBySdk =
         match isDotnetSdk, projectLanguage with
-        | true, ProjectLanguageRecognizer.ProjectLanguage.FSharp ->
+        | true, ProjectLanguage.FSharp ->
             Ok getFscArgs
-        | false, ProjectLanguageRecognizer.ProjectLanguage.FSharp ->
+        | false, ProjectLanguage.FSharp ->
             let asFscArgs props =
                 let fsc = Microsoft.FSharp.Build.Fsc()
                 Dotnet.ProjInfo.FakeMsbuildTasks.getResponseFileFromTask props fsc
             Ok (getFscArgsOldSdk (asFscArgs >> Ok))
-        | _, ProjectLanguageRecognizer.ProjectLanguage.CSharp ->
+        | _, ProjectLanguage.CSharp ->
             Errors.GenericError (sprintf "fsc args not supported on .csproj, expected an .fsproj" )
             |> Result.Error
-        | _, ProjectLanguageRecognizer.ProjectLanguage.Unknown ext ->
+        | _, ProjectLanguage.Unknown ext ->
             Errors.GenericError (sprintf "compiler args not supported on project with extension %s, expected .fsproj" ext)
             |> Result.Error
 
@@ -291,15 +288,15 @@ let cscArgsMain log (results: ParseResults<CommonProjectCLIArguments>) = attempt
 
     let! getCompilerArgsBySdk =
         match isDotnetSdk, projectLanguage with
-        | true, ProjectLanguageRecognizer.ProjectLanguage.CSharp ->
+        | true, ProjectLanguage.CSharp ->
             Ok getCscArgs
-        | false, ProjectLanguageRecognizer.ProjectLanguage.CSharp ->
+        | false, ProjectLanguage.CSharp ->
             Errors.GenericError "csc args not supported on old sdk"
             |> Result.Error
-        | _, ProjectLanguageRecognizer.ProjectLanguage.FSharp ->
+        | _, ProjectLanguage.FSharp ->
             Errors.GenericError (sprintf "csc args not supported on .fsproj, expected an .csproj" )
             |> Result.Error
-        | _, ProjectLanguageRecognizer.ProjectLanguage.Unknown ext ->
+        | _, ProjectLanguage.Unknown ext ->
             Errors.GenericError (sprintf "compiler args not supported on project with extension %s" ext)
             |> Result.Error
 
@@ -371,7 +368,7 @@ let netFwRefMain log (results: ParseResults<_>) = attempt {
         Dotnet.ProjInfo.NETFrameworkInfoFromMSBuild.createEnvInfoProj ()
         |> Path.GetFullPath
 
-    let msbuildPath = results.GetResult(MSBuild, defaultValue = "msbuild")
+    let msbuildPath = results.GetResult(NetFwRefCLIArguments.MSBuild, defaultValue = "msbuild")
 
     let cmd () = Dotnet.ProjInfo.NETFrameworkInfoFromMSBuild.getReferencePaths props
 

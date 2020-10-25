@@ -10,6 +10,7 @@
     <Compile Include="ExternalFSharp\MissingApi.fs" />
     <Compile Include="ExternalFSharp\FscConfig.fs" />
     <Compile Include="Inspect.fs" />
+    <Compile Include="ProjectRecognizer.fs" />
     <Compile Include="MSBuild.fs" />
     <Compile Include="NETFrameworkInfoFromMSBuild.fs" />
     <Compile Include="NETFramework.fs" />

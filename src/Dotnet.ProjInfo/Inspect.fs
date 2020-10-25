@@ -608,16 +608,3 @@ let getFscArgsOldSdk propsToFscArgs () =
         |> bindSkipped parsePropertiesOut
         |> Result.bind propsToFscArgs
         |> Result.map FscArgs)
-
-module ProjectLanguageRecognizer =
-
-    type ProjectLanguage =
-        | CSharp
-        | FSharp
-        | Unknown of string
-
-    let languageOfProject (file: string) =
-        match Path.GetExtension(file) with
-        | ".csproj" -> ProjectLanguage.CSharp
-        | ".fsproj" -> ProjectLanguage.FSharp
-        | ext -> ProjectLanguage.Unknown ext
