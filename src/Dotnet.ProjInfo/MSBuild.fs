@@ -32,7 +32,7 @@ type ProjectEvaluationConfig =
 type ProjectEvaluationRequest =
     /// Sets the appropriate parameters to the evaluator
     /// to get the compiler arguments of the project.
-    /// As a parameter, whether the project is SDK-style has to be passed.
+    /// Will be ignored on legacy projects.
     | GetCompilerArgs
     /// Sets the appropriate parameters to get
     /// the resolved project references of the project.
@@ -137,9 +137,7 @@ module Inspect =
                         "UseCommonOutputDirectory", "true"
                     ]
                 | ProjectEvaluationRequest.GetCompilerArgs ->
-                    "Getting compiler arguments for legacy projects is not supported."
-                    |> NotSupportedException
-                    |> raise
+                    [], []
                 | ProjectEvaluationRequest.GetResolvedProjectToProjectReferences ->
                     ["ResolveProjectReferencesDesignTime"], []
                 | ProjectEvaluationRequest.Restore ->
@@ -197,3 +195,23 @@ module Inspect =
             ProjectEvaluationResult(requests, isSdkStyleProject, projectInstance) |> Ok
         | _, null -> Error None
         | _, ex -> Error (Some ex)
+
+    /// Gets the compiler arguments that are invoked for this project.
+    /// `ProjectEvaluationRequest.GetCompilerArgs` has to be specified
+    /// to the evaluator or incorrect results will be returned. This
+    /// function will return an error if the project is a legacy one
+    /// or is in a language other than C# or F#.
+    let getCompilerArgs (proj: ProjectEvaluationResult) =
+        if proj.IsSdkStyleProject then
+            let itemName =
+                match proj.Language with
+                | ProjectLanguage.CSharp -> Ok "CscCommandLineArgs"
+                | ProjectLanguage.FSharp -> Ok "FscCommandLineArgs"
+                | ProjectLanguage.Unknown ext ->
+                    Error (sprintf "compiler args not supported on project with extension %s" ext)
+            itemName
+            |> Result.map (proj.GetAllMutableItems
+            >> Seq.map (fun x -> x.EvaluatedInclude)
+            >> List.ofSeq)
+        else
+            Error "compiler args are not supported on legacy projects"

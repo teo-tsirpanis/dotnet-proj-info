@@ -1,4 +1,4 @@
-open System
+﻿open System
 open System.Collections.Concurrent
 open System.Diagnostics
 open System.IO
@@ -238,107 +238,53 @@ let itemMain config log (results: ParseResults<ItemCLIArguments>) = attempt {
                 printfn "%s.%s=%s" item.ItemType mdName mdValue
 }
 
-let fscArgsMain log (results: ParseResults<_>) = attempt {
+let compilerArgsMain config log (results: ParseResults<_>) = attempt {
 
     let! projPath =
         results.TryGetResult CommonProjectCLIArguments.Project
         |> validateProj log
 
-    let! (isDotnetSdk, projectLanguage) = analyzeProj projPath
+    let requests = ProjectEvaluationRequest.Restore :: ProjectEvaluationRequest.GetCompilerArgs :: List.choose id [
+        results.TryGetResult CommonProjectCLIArguments.Framework |> Option.map ProjectEvaluationRequest.TargetFramework
+        results.TryGetResult CommonProjectCLIArguments.Runtime |> Option.map ProjectEvaluationRequest.RuntimeIdentifier
+        results.TryGetResult CommonProjectCLIArguments.Configuration |> Option.map ProjectEvaluationRequest.Configuration
+    ]
 
-    let! getCompilerArgsBySdk =
-        match isDotnetSdk, projectLanguage with
-        | true, ProjectLanguage.FSharp ->
-            Ok getFscArgs
-        | false, ProjectLanguage.FSharp ->
-            let asFscArgs props =
-                let fsc = Microsoft.FSharp.Build.Fsc()
-                Dotnet.ProjInfo.FakeMsbuildTasks.getResponseFileFromTask props fsc
-            Ok (getFscArgsOldSdk (asFscArgs >> Ok))
-        | _, ProjectLanguage.CSharp ->
-            Errors.GenericError (sprintf "fsc args not supported on .csproj, expected an .fsproj" )
-            |> Result.Error
-        | _, ProjectLanguage.Unknown ext ->
-            Errors.GenericError (sprintf "compiler args not supported on project with extension %s, expected .fsproj" ext)
-            |> Result.Error
+    let! proj = evaluateProj config requests projPath
+    let! compilerArgs =
+        Inspect.getCompilerArgs proj
+        |> Result.mapError GenericError
 
-    let globalArgs =
-        [ results.TryGetResult CommonProjectCLIArguments.Framework , if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult CommonProjectCLIArguments.Runtime, "RuntimeIdentifier"
-          results.TryGetResult CommonProjectCLIArguments.Configuration, "Configuration" ]
-        |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
-        |> List.map (MSBuild.MSbuildCli.Property)
+    if results.Contains CommonProjectCLIArguments.Json then
+        printfn "%s" (JsonSerializer.Serialize compilerArgs)
+    else
+        List.iter (printfn "%s") compilerArgs
+}
 
-    let cmd = getCompilerArgsBySdk
-
-    let msbuildHost =
-        results
-        |> pickMsbuild isDotnetSdk <@ CommonProjectCLIArguments.MSBuild @> <@ CommonProjectCLIArguments.DotnetCli @> <@ CommonProjectCLIArguments.MSBuild_Host @>
-
-    return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
-    }
-
-let cscArgsMain log (results: ParseResults<CommonProjectCLIArguments>) = attempt {
-
-    let! projPath =
-        results.TryGetResult CommonProjectCLIArguments.Project
-        |> validateProj log
-
-    let! (isDotnetSdk, projectLanguage) = analyzeProj projPath
-
-    let! getCompilerArgsBySdk =
-        match isDotnetSdk, projectLanguage with
-        | true, ProjectLanguage.CSharp ->
-            Ok getCscArgs
-        | false, ProjectLanguage.CSharp ->
-            Errors.GenericError "csc args not supported on old sdk"
-            |> Result.Error
-        | _, ProjectLanguage.FSharp ->
-            Errors.GenericError (sprintf "csc args not supported on .fsproj, expected an .csproj" )
-            |> Result.Error
-        | _, ProjectLanguage.Unknown ext ->
-            Errors.GenericError (sprintf "compiler args not supported on project with extension %s" ext)
-            |> Result.Error
-
-    let globalArgs =
-        [ results.TryGetResult CommonProjectCLIArguments.Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult CommonProjectCLIArguments.Runtime, "RuntimeIdentifier"
-          results.TryGetResult CommonProjectCLIArguments.Configuration, "Configuration" ]
-        |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
-        |> List.map (MSBuild.MSbuildCli.Property)
-
-    let cmd = getCompilerArgsBySdk
-
-    let msbuildHost =
-        results
-        |> pickMsbuild isDotnetSdk <@ CommonProjectCLIArguments.MSBuild @> <@ CommonProjectCLIArguments.DotnetCli @> <@ CommonProjectCLIArguments.MSBuild_Host @>
-
-    return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
-    }
-
-let p2pMain log (results: ParseResults<CommonProjectCLIArguments>) = attempt {
+let p2pMain config log (results: ParseResults<CommonProjectCLIArguments>) = attempt {
 
     let! projPath =
         results.TryGetResult Project
         |> validateProj log
 
-    let! (isDotnetSdk, _projectLanguage) = analyzeProj projPath
+    let requests = ProjectEvaluationRequest.Restore :: List.choose id [
+        results.TryGetResult CommonProjectCLIArguments.Framework |> Option.map ProjectEvaluationRequest.TargetFramework
+        results.TryGetResult CommonProjectCLIArguments.Runtime |> Option.map ProjectEvaluationRequest.RuntimeIdentifier
+        results.TryGetResult CommonProjectCLIArguments.Configuration |> Option.map ProjectEvaluationRequest.Configuration
+    ]
 
-    let globalArgs =
-        [ results.TryGetResult Framework, if isDotnetSdk then "TargetFramework" else "TargetFrameworkVersion"
-          results.TryGetResult Runtime, "RuntimeIdentifier"
-          results.TryGetResult Configuration, "Configuration" ]
-        |> List.choose (fun (a,p) -> a |> Option.map (fun x -> (p,x)))
-        |> List.map (MSBuild.MSbuildCli.Property)
+    let! proj = evaluateProj config requests projPath
 
-    let cmd = getP2PRefs
+    let projectReferences =
+        proj.GetAllMutableItems("ProjectReference")
+        |> Seq.map(fun item -> item.GetMetadataValue("FullPath"))
+        |> List.ofSeq
 
-    let msbuildHost =
-        results
-        |> pickMsbuild isDotnetSdk <@ CommonProjectCLIArguments.MSBuild @> <@ DotnetCli @> <@ MSBuild_Host @>
-
-    return projPath, cmd, msbuildHost, globalArgs, (restoreIfNeededBySdk isDotnetSdk)
-    }
+    if results.Contains CommonProjectCLIArguments.Json then
+        printfn "%s" (JsonSerializer.Serialize projectReferences)
+    else
+        List.iter (printfn "%s") projectReferences
+}
 
 let netFwMain log (results: ParseResults<NetFwCLIArguments>) = attempt {
 
@@ -401,17 +347,19 @@ let realMain argv = attempt {
         | None -> ignore
 
     let! (projPath, cmd, msbuildHost, globalArgs, preAction) =
-        match results.TryGetSubCommand () with
+        match results.TryGetSubCommand() with
         | Some (Prop subCmd) ->
             propMain config log subCmd
         | Some (Item subCmd) ->
             itemMain config log subCmd
-        | Some (Fsc_Args subCmd) ->
-            fscArgsMain log subCmd
+        | Some (Compiler_Args subCmd) ->
+            compilerArgsMain config log subCmd
+        | Some (Fsc_Args subCmd)
         | Some (Csc_Args subCmd) ->
-            cscArgsMain log subCmd
+            log "This subcommand is deprecated. Use compiler-args instead."
+            compilerArgsMain config log subCmd
         | Some (P2p subCmd) ->
-            p2pMain log subCmd
+            p2pMain config log subCmd
         | Some (Net_Fw subCmd) ->
             netFwMain log subCmd
         | Some (Net_Fw_Ref subCmd) ->

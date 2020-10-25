@@ -55,9 +55,7 @@ type CommonProjectCLIArguments =
     | [<AltCommandLine("-f")>] Framework of string
     | [<AltCommandLine("-r")>] Runtime of string
     | [<AltCommandLine("-c")>] Configuration of string
-    | MSBuild of string
-    | DotnetCli of string
-    | MSBuild_Host of MSBuildHostPicker
+    | [<Unique>] Json
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -67,9 +65,7 @@ with
             | Runtime _ -> "target runtime, the RuntimeIdentifier msbuild property"
             | Configuration _ -> "configuration to use (like Debug), the Configuration msbuild property"
             | Property _ -> "msbuild property to use (allow multiple)"
-            | MSBuild _ -> """MSBuild path (default "msbuild")"""
-            | DotnetCli _ -> """Dotnet CLI path (default "dotnet")"""
-            | MSBuild_Host _ -> "the Msbuild host, if auto then oldsdk=MSBuild dotnetSdk=DotnetCLI"
+            | Json _ -> "print output as JSON"
 
 type NetFwCLIArguments =
     | MSBuild of string
@@ -90,11 +86,12 @@ with
             | MSBuild _ -> """MSBuild path (default "msbuild")"""
 
 type CLIArguments =
-    | [<AltCommandLine("-v"); InheritAttribute>] Verbose
+    | [<AltCommandLine("-v"); Inherit>] Verbose
     | [<Unique; Inherit>] MSBuild of string
     | [<CliPrefix(CliPrefix.None)>] Prop of ParseResults<PropCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] Fsc_Args of ParseResults<CommonProjectCLIArguments>
-    | [<CliPrefix(CliPrefix.None)>] Csc_Args of ParseResults<CommonProjectCLIArguments>
+    | [<CliPrefix(CliPrefix.None)>] Compiler_Args of ParseResults<CommonProjectCLIArguments>
+    | [<CliPrefix(CliPrefix.None); Hidden>] Fsc_Args of ParseResults<CommonProjectCLIArguments>
+    | [<CliPrefix(CliPrefix.None); Hidden>] Csc_Args of ParseResults<CommonProjectCLIArguments>
     | [<CliPrefix(CliPrefix.None)>] P2p of ParseResults<CommonProjectCLIArguments>
     | [<CliPrefix(CliPrefix.None)>] Item of ParseResults<ItemCLIArguments>
     | [<CliPrefix(CliPrefix.None)>] Net_Fw of ParseResults<NetFwCLIArguments>
@@ -106,8 +103,9 @@ with
             | Verbose -> "verbose log"
             | MSBuild _ -> "MSBuild directory"
             | Prop _ -> "get properties"
-            | Fsc_Args _ -> "get fsc arguments"
-            | Csc_Args _ -> "get csc arguments"
+            | Compiler_Args _ -> "get compiler arguments"
+            | Fsc_Args _ -> "get fsc arguments (deprecated; use compiler-args)"
+            | Csc_Args _ -> "get csc arguments (deprecated; use compiler-args)"
             | P2p _ -> "get project references"
             | Item _ -> "get items"
             | Net_Fw _ -> "list the installed .NET Frameworks"
