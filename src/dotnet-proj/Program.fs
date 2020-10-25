@@ -1,4 +1,4 @@
-﻿open System
+open System
 open System.Collections.Concurrent
 open System.Diagnostics
 open System.IO
@@ -171,7 +171,7 @@ let propMain config log (results: ParseResults<PropCLIArguments>) = attempt {
         results.TryGetResult PropCLIArguments.Project
         |> validateProj log
 
-    let requests = List.choose id [
+    let requests = ProjectEvaluationRequest.Restore :: List.choose id [
         results.TryGetResult PropCLIArguments.Framework |> Option.map ProjectEvaluationRequest.TargetFramework
         results.TryGetResult PropCLIArguments.Runtime |> Option.map ProjectEvaluationRequest.RuntimeIdentifier
         results.TryGetResult PropCLIArguments.Configuration |> Option.map ProjectEvaluationRequest.Configuration
@@ -200,7 +200,7 @@ let itemMain config log (results: ParseResults<ItemCLIArguments>) = attempt {
 
     let dependsOn = results.GetResults ItemCLIArguments.Depends_On
 
-    let requests = ProjectEvaluationRequest.Custom(dependsOn, []) :: List.choose id [
+    let requests = ProjectEvaluationRequest.Restore :: ProjectEvaluationRequest.Custom(dependsOn, []) :: List.choose id [
         results.TryGetResult ItemCLIArguments.Framework |> Option.map ProjectEvaluationRequest.TargetFramework
         results.TryGetResult ItemCLIArguments.Runtime |> Option.map ProjectEvaluationRequest.RuntimeIdentifier
         results.TryGetResult ItemCLIArguments.Configuration |> Option.map ProjectEvaluationRequest.Configuration
@@ -458,9 +458,7 @@ let realMain argv = attempt {
         | InstalledNETFw args -> args
 
     out |> List.iter (printfn "%s")
-
-    return r
-    }
+}
 
 let wrapEx m f a =
     try
@@ -476,7 +474,7 @@ let (|HelpRequested|_|) (ex: ArguParseException) =
 [<EntryPoint>]
 let main argv =
     match wrapEx "uncaught exception" (realMain >> runAttempt) argv with
-    | Ok _ -> 0
+    | Ok () -> 0
     | Error err ->
         match err with
         | InvalidArgs (HelpRequested helpText) ->

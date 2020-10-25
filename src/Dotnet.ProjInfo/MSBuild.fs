@@ -37,6 +37,9 @@ type ProjectEvaluationRequest =
     /// Sets the appropriate parameters to get
     /// the resolved project references of the project.
     | GetResolvedProjectToProjectReferences
+    /// Specifies the project has to be restored if it's SDK-style.
+    /// If present, this request should be specified first.
+    | Restore
     /// Sets the target framework of the project to the specified one.
     | TargetFramework of tfm: string
     /// Sets the runtime identifier of the project to the specified one.
@@ -139,6 +142,9 @@ module Inspect =
                     |> raise
                 | ProjectEvaluationRequest.GetResolvedProjectToProjectReferences ->
                     ["ResolveProjectReferencesDesignTime"], []
+                | ProjectEvaluationRequest.Restore ->
+                    if isSdkStyleProject then ["Restore"] else []
+                    , []
                 | ProjectEvaluationRequest.TargetFramework tfm ->
                     let propertyName = if isSdkStyleProject then "TargetFramework" else "TargetFrameworkVersion"
                     [], [propertyName, tfm]
